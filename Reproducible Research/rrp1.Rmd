@@ -1,0 +1,151 @@
+---
+title: "Reproducible Research Project-1"
+author: "Srishti Goel"
+date: "5/31/2020"
+output: html_document
+---
+#Personal Activity Monitoring Data Analysis
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Step 1: Downloading and Importing Dataset
+
+
+```{r}
+url= "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(url, "rr.zip")
+unzip("rr.zip") 
+d = read.csv("activity.csv")
+head(d)
+str(d)
+```
+
+## Step 2 :  Calculating total , mean and median of steps taken each day
+
+You can also embed plots, for example:
+
+```{r}
+library(dplyr)
+d11= d %>% 
+  group_by(date)%>%
+  summarize(total_steps= sum(steps),
+            mean= mean(steps, na.rm=TRUE), median= median(steps, na.rm=TRUE) )
+head(d11)
+```
+## Histogram of the total number of steps taken each day
+
+```{r, results="hide"}
+library(ggplot2)
+qplot( total_steps, data= d11, geom = "histogram" , 
+       main ="Histogram of Total Number of steps taken at each day")
+```
+
+## Mean and median number of steps taken each day
+```{r}
+head(d11)
+```
+## Calculating average daily activity pattern
+
+```{r}
+d21= d%>%
+  group_by(interval)%>%
+  summarize(mean = mean(steps, na.rm= TRUE))
+```
+
+## Time series plot of the average number of steps taken
+```{r}
+plot(d21$interval, d21$mean, type="l")
+
+```
+## The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+as.numeric(filter(d21, d21$mean==max(d21$mean))[1,1])
+```
+## Missing Values 
+```{r}
+sum(is.na(d))
+```
+There exists missing values in our data and that may bias our decisions. For fixing this mean imputation is used to fill in the missing values for the data.
+
+## Imputation of Missing Values through mean for that 5min interval 
+Average for each 5 min interval has already been calculated in dataset d21 ignoring NA values. For filling in those, for loop is used. 
+
+```{r}
+#Creating an empty vector
+nstep= c()
+
+for(i in 1: 17568){
+  if (is.na(d[i,1])==TRUE) {
+    nstep[i]= filter(d21, d21$interval== d[i,3] ) [1,2]
+  } else {
+    nstep[i]= d$steps[i]
+  }
+}  
+```
+
+##  Complete Dataset with no missing data
+```{r}
+d31= d
+d31$steps= as.numeric(nstep)
+```
+
+## Calculating total, mean ad median steps for each day 
+
+```{r}
+d32= d31%>% 
+  group_by(date)%>%
+  summarize (total = sum(steps),mean= mean(steps), median=median(steps) )
+head(d32)
+```
+
+## Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r}
+qplot(total, data=d32, geom="histogram", main="Total Number of Steps taken at each Day")
+```
+
+## Devising a factor variable to indicate whether a day is weekday or weekend 
+Activity levels are expected to differ on weekend and weekdays because of office working hours.So now we will study whether this expectation is backed by emperical evidence.
+As mentioned in the project hints, weekdays() is used. This function returns the which day of the week does a particular date correspond to.
+ 
+ ```{r}
+d31$date = as.Date(d31$date)
+day=c()
+d31$day = weekdays(d31$date)
+head(d31, 4)
+ ```
+Now a factor variable weekend which takes value 1 if the day is a weekend and zero otherwise. 
+```{r}
+# Column weekend with zeroes in it
+d31$weekend= rep(0) 
+
+#Finding rows which observed on weekends
+sat= grep("saturday",d31$day, ignore.case= TRUE)
+sun=grep("sunday", d31$day, ignore.case=TRUE)
+
+#Replacing weekend value with 1 using above calculated vectors sat and sun
+d31[sat,5 ] = 1
+d31[sun,5]=1
+d31$weekend= as.factor(d31$weekend)
+
+str(d31)
+d31$steps= as.numeric(d31$steps)
+```
+## Plot
+
+
+```{r}
+d41= d31%>%
+  group_by(interval, weekend)%>%
+  summarize(mean= mean(steps))
+
+
+levels(d41$weekend)
+levels(d41$weekend)= c("Weekday", "Weekend")
+
+qplot(interval,mean, data=d41, geom= "line",facets= weekend~., ylab="Number of steps", 
+      xlab="Interval", main= "")
+```
+
